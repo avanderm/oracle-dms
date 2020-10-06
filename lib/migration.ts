@@ -49,7 +49,7 @@ export class ReplicationStack extends cdk.Stack {
     const replicationSubnetGroup = new dms.CfnReplicationSubnetGroup(this, 'SubnetGroup', {
       replicationSubnetGroupDescription: 'Subnets available for DMS',
       //subnetIds: props.vpc.privateSubnets.map(subnet => subnet.subnetId)
-      subnetIds: props.vpc.publicSubnets.map(subnet => subnet.subnetId)
+      subnetIds: props.vpc.isolatedSubnets.map(subnet => subnet.subnetId)
     });
 
     const replicationInstance = new dms.CfnReplicationInstance(this, 'Instance', {
