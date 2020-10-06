@@ -11,6 +11,10 @@ const region = process.env.CDK_DEPLOY_REGION
 const app = new cdk.App();
 
 const externalResources = new ExternalResources(app, 'ExternalResources', {
+  env: {
+    account: account,
+    region: region
+  },
   vpcId: app.node.tryGetContext('vpcId')
 });
 
