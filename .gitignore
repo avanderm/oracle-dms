@@ -12,3 +12,6 @@ cdk.out
 
 # Python
 __pycache__
+
+# VIM
+*.swp

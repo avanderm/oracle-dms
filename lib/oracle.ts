@@ -37,7 +37,7 @@ export class OracleStack extends cdk.Stack {
       securityGroups: [securityGroup],
       vpc: props.vpc,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PUBLIC
+        subnetType: ec2.SubnetType.PRIVATE
       }
     });
 

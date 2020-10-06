@@ -9,7 +9,8 @@ import * as fs from 'fs';
 
 interface ReplicationStackProps extends cdk.StackProps {
   database: rds.IDatabaseInstance;
-  password: string;
+  dmsPassword: string;
+  dmsUser: string;
   securityGroup: ec2.ISecurityGroup;
   vpc: ec2.IVpc;
 }
@@ -47,7 +48,7 @@ export class ReplicationStack extends cdk.Stack {
 
     const replicationSubnetGroup = new dms.CfnReplicationSubnetGroup(this, 'SubnetGroup', {
       replicationSubnetGroupDescription: 'Subnets available for DMS',
-      subnetIds: props.vpc.publicSubnets.map(subnet => subnet.subnetId)
+      subnetIds: props.vpc.privateSubnets.map(subnet => subnet.subnetId)
     });
 
     const replicationInstance = new dms.CfnReplicationInstance(this, 'Instance', {
@@ -62,11 +63,11 @@ export class ReplicationStack extends cdk.Stack {
       databaseName: 'ORCL',
       endpointType: 'source',
       engineName: 'ORACLE',
-      password: props.password,
+      password: props.dmsPassword,
       //port: parseInt(props.database.dbInstanceEndpointPort),
       port: 1521,
       serverName: props.database.dbInstanceEndpointAddress,
-      username: 'DMS_USER',
+      username: props.dmsUser,
       extraConnectionAttributes: 'useLogminerReader=N;useBfile=Y;accessAlternateDirectly=false;useAlternateFolderForOnline=true; oraclePathPrefix=/rdsdbdata/db/ORCL_A/;usePathPrefix=/rdsdbdata/log/;replacePathPrefix=true'
     });
 
@@ -82,13 +83,10 @@ export class ReplicationStack extends cdk.Stack {
 
     const replicationTask = new dms.CfnReplicationTask(this, 'Task', {
       migrationType: 'full-load-and-cdc',
-      //replicationInstanceArn: cdk.Fn.getAtt(replicationInstance.logicalId, 'Arn').toString(),
       replicationInstanceArn: replicationInstance.ref,
       replicationTaskSettings: fs.readFileSync('config/replication-task-settings.json', 'utf-8'),
-      //sourceEndpointArn: cdk.Fn.getAtt(oracleSourceEndpoint.logicalId, 'Arn').toString(),
       sourceEndpointArn: oracleSourceEndpoint.ref,
       tableMappings: fs.readFileSync('config/table-mappings.json', 'utf-8'),
-      //targetEndpointArn: cdk.Fn.getAtt(s3TargetEndpoint.logicalId, 'Arn').toString()
       targetEndpointArn: s3TargetEndpoint.ref
     });
   }

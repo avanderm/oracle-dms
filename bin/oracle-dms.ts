@@ -5,18 +5,18 @@ import { ExternalResources } from '../lib/external';
 import { OracleStack } from '../lib/oracle';
 import { ReplicationStack } from '../lib/migration';
 
+const account = process.env.CDK_DEPLOY_ACCOUNT
 const region = process.env.CDK_DEPLOY_REGION
 
 const app = new cdk.App();
 
 const externalResources = new ExternalResources(app, 'ExternalResources', {
-  vpcId: app.node.tryGetContext('vpcId'),
-  subnetIds: app.node.tryGetContext('subnetIds')?.split(','),
-  availabilityZones: app.node.tryGetContext('availabilityZones')?.split(',')
+  vpcId: app.node.tryGetContext('vpcId')
 });
 
 const oracleStack = new OracleStack(app, 'OracleStack', {
   env: {
+    account: account,
     region: region
   },
   tags: {
@@ -30,6 +30,7 @@ const oracleStack = new OracleStack(app, 'OracleStack', {
 
 new ReplicationStack(app, 'ReplicationStack', {
   env: {
+    account: account,
     region: region
   },
   tags: {
@@ -38,7 +39,8 @@ new ReplicationStack(app, 'ReplicationStack', {
     Project: 'oracle-dms'
   },
   database: oracleStack.database,
-  password: 'password',
+  dmsPassword: app.node.tryGetContext('dmsPassword'),
+  dmsUser: app.node.tryGetContext('dmsUser'),
   securityGroup: oracleStack.replicationSecurityGroup,
   vpc: externalResources.vpc
 });
