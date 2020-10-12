@@ -39,7 +39,7 @@ Follow the steps to enable supplemental logging and create the directories for t
 Now deploy the DMS stack using
 
 ```bash
-STACK=OracleStack make deploy
+STACK=ReplicationStack make deploy
 ```
 
 **Set values for the environment variables `CDK_DEPLOY_ACCOUNT`, `CDK_DEPLOY_REGION` and `VPC_ID`. In addition, use the values you set in the previous step for `DMS_USER` and `DMS_PASSWORD`.**
@@ -48,4 +48,4 @@ If you wish to deploy in private subnets, change so [here](https://github.com/av
 
 If everything is deployed fine, the connection tests for all the endpoint will pass and you can kick off the database migration task in DMS. The Parquet files will appear in S3, of which the content and types can be checked with a tool such as `parq`. Running a Glue crawler on the bucket will populate a Glue database with the tables where you can check the data types.
 
-Inserting data into the existing tables will be captured by the CDC process of DMS.
+Inserting data into the existing tables will be captured by the CDC process of DMS. Unlike the full load files, these will include an additional column called `Op` which indicates whether the record is the result of an insert (I), update (U) or delete (D). A Glue database and crawler are made available.
