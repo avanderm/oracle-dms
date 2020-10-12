@@ -2,6 +2,7 @@ import * as cdk from '@aws-cdk/core';
 import * as dms from '@aws-cdk/aws-dms';
 import * as ec2 from '@aws-cdk/aws-ec2';
 import * as iam from '@aws-cdk/aws-iam';
+import * as glue from '@aws-cdk/aws-glue';
 import * as rds from '@aws-cdk/aws-rds';
 import * as s3 from '@aws-cdk/aws-s3';
 import * as sm from '@aws-cdk/aws-secretsmanager';
@@ -18,6 +19,9 @@ interface ReplicationStackProps extends cdk.StackProps {
 export class ReplicationStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props: ReplicationStackProps) {
     super(scope, id, props);
+
+    const account = cdk.Stack.of(this).account;
+    const region = cdk.Stack.of(this).region;
 
     const replicationBucket = new s3.Bucket(this, 'Bucket', {
       removalPolicy: cdk.RemovalPolicy.DESTROY
@@ -75,7 +79,7 @@ export class ReplicationStack extends cdk.Stack {
     const s3TargetEndpoint = new dms.CfnEndpoint(this, 'Target', {
       endpointType: 'target',
       engineName: 'S3',
-      extraConnectionAttributes: 'addColumnName=true;dataFormat=parquet;parquetVersion=PARQUET_2_0',
+      extraConnectionAttributes: 'addColumnName=true;dataFormat=parquet;parquetVersion=PARQUET_2_0;includeOpForFullLoad=true;parquetTimestampInMillisecond=true;timestampColumnName=dt;',
       s3Settings: {
         bucketName: replicationBucket.bucketName,
         serviceAccessRoleArn: replicationTargetRole.roleArn
@@ -89,6 +93,51 @@ export class ReplicationStack extends cdk.Stack {
       sourceEndpointArn: oracleSourceEndpoint.ref,
       tableMappings: fs.readFileSync('config/table-mappings.json', 'utf-8'),
       targetEndpointArn: s3TargetEndpoint.ref
+    });
+
+    const database = new glue.Database(this, 'Database', {
+      databaseName: 'oracle-dms'
+    });
+
+    const crawlerRole = new iam.Role(this, 'CrawlerRole', {
+      assumedBy: new iam.ServicePrincipal('glue.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSGlueServiceRole')
+      ]
+    });
+
+    const crawlerS3Permissions = new iam.PolicyStatement();
+    crawlerS3Permissions.addResources(
+      `${replicationBucket.bucketArn}*`
+    );
+    crawlerS3Permissions.addActions(
+      's3:GetObject',
+      's3:PutObject'
+    );
+
+    const crawlerLogsPermissions = new iam.PolicyStatement();
+    crawlerLogsPermissions.addAllResources();
+    crawlerLogsPermissions.addActions(
+      'logs:*',
+    );
+
+    crawlerRole.addToPolicy(crawlerLogsPermissions);
+    crawlerRole.addToPolicy(crawlerS3Permissions);
+
+    new glue.CfnCrawler(this, 'Crawler', {
+      databaseName: database.databaseName,
+      role: crawlerRole.roleArn,
+      schemaChangePolicy: {
+        updateBehavior: 'UPDATE_IN_DATABASE',
+        deleteBehavior: 'LOG'
+      },
+      targets: {
+        s3Targets: [
+          {
+            path: `s3://${replicationBucket.bucketName}`
+          }
+        ]
+      }
     });
   }
 }
